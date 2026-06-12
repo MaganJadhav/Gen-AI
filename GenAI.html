@@ -1,0 +1,45 @@
+import os
+import gradio as gr
+from huggingface_hub import InferenceClient
+from google.colab import userdata
+
+# Get HF token from Colab secrets
+hf_token = userdata.get("GenAI")
+os.environ["GenAI"] = hf_token
+
+# Initialize Hugging Face client
+client = InferenceClient(
+    "meta-llama/Meta-Llama-3-8B-Instruct",
+    token=hf_token
+)
+
+def respond(message, history):
+    messages = [{"role": "system", "content": "You are a helpful AI assistant."}]
+
+    for chat in history:
+        messages.append({"role": "user", "content": chat["user"]})
+        messages.append({"role": "assistant", "content": chat["assistant"]})
+
+    messages.append({"role": "user", "content": message})
+
+    reply = ""
+    for chunk in client.chat_completion(
+        messages,
+        max_tokens=512,
+        temperature=0.7,
+        stream=True
+    ):
+        text = chunk.choices[0].delta.content
+        if text:
+            reply += text
+            yield reply
+
+# Gradio UI
+app = gr.ChatInterface(
+    fn=respond,
+    type="messages",
+    title="🤖 Magan's Chatbot",
+    description="Simple chatbot using Hugging Face Llama-3",
+)
+
+app.launch(share=True)
